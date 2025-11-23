@@ -1,0 +1,232 @@
+#!/bin/bash
+set -euo pipefail
+
+# gh-protect: GitHub CLI extension for BjzyLabs standard branch protection
+# Applies consistent branch protection rules across all repositories
+#
+# Usage: 
+#   gh protect              # Auto-detect current repository
+#   gh protect owner/repo   # Specify repository
+
+VERSION="1.0.0"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Branch protection templates
+MAIN_PROTECTION='{
+  "required_status_checks": null,
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 0,
+    "dismiss_stale_reviews": false,
+    "require_code_owner_reviews": false,
+    "require_last_push_approval": false
+  },
+  "restrictions": null,
+  "required_linear_history": false,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "block_creations": false,
+  "required_conversation_resolution": false,
+  "lock_branch": false,
+  "allow_fork_syncing": false
+}'
+
+DEVELOP_PROTECTION='{
+  "required_status_checks": null,
+  "enforce_admins": false,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 0,
+    "dismiss_stale_reviews": false,
+    "require_code_owner_reviews": false,
+    "require_last_push_approval": false
+  },
+  "restrictions": null,
+  "required_linear_history": false,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "block_creations": false,
+  "required_conversation_resolution": false,
+  "lock_branch": false,
+  "allow_fork_syncing": false
+}'
+
+usage() {
+    cat << EOF
+${BLUE}gh-protect v$VERSION${NC}
+
+Apply BjzyLabs standard branch protection rules to repositories.
+
+${YELLOW}Usage:${NC}
+  gh protect              Auto-detect current repository
+  gh protect owner/repo   Specify repository explicitly
+  gh protect --help       Show this help message
+  gh protect --version    Show version information
+
+${YELLOW}Examples:${NC}
+  gh protect                           # Protect current repo
+  gh protect BjzyLabs/ansible          # Protect specific repo
+  gh protect BrianInAz/myContext       # Protect personal repo
+
+${YELLOW}Branch Protection Applied:${NC}
+  Main Branch:
+    ✓ Requires pull request
+    ✓ Enforces admin compliance (no bypass)
+    ✓ Self-merge allowed (no approval needed)
+    ✓ No force pushes
+    ✓ No deletions
+
+  Develop Branch:
+    ✓ Requires pull request
+    ✓ Admin can bypass (emergencies only)
+    ✓ Self-merge allowed (no approval needed)
+    ✓ No force pushes
+    ✓ No deletions
+
+${YELLOW}More Info:${NC}
+  Repository: https://github.com/BjzyLabs/gh-protect
+  Documentation: https://www.notion.so/2af3569aa25581a6b07ed66a0170be14
+EOF
+    exit 0
+}
+
+version() {
+    echo "gh-protect version $VERSION"
+    exit 0
+}
+
+error() {
+    echo -e "${RED}Error: $1${NC}" >&2
+    exit 1
+}
+
+success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+# Parse arguments
+REPO="${1:-}"
+
+case "$REPO" in
+    --help|-h)
+        usage
+        ;;
+    --version|-v)
+        version
+        ;;
+    "")
+        # Auto-detect current repository
+        if ! REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); then
+            error "Not in a git repository or no GitHub remote configured"
+        fi
+        info "Auto-detected repository: $REPO"
+        ;;
+esac
+
+# Validate repo format
+if [[ ! "$REPO" =~ ^[^/]+/[^/]+$ ]]; then
+    error "Invalid repository format. Expected: owner/repo-name, Got: $REPO"
+fi
+
+# Check if gh CLI is installed
+if ! command -v gh &> /dev/null; then
+    error "GitHub CLI (gh) not found. Install with: brew install gh"
+fi
+
+# Check if authenticated
+if ! gh auth status &> /dev/null; then
+    error "Not authenticated with GitHub. Run: gh auth login"
+fi
+
+echo ""
+echo -e "${BLUE}═══════════════════════════════════════${NC}"
+echo -e "${BLUE}  BjzyLabs Branch Protection Setup${NC}"
+echo -e "${BLUE}═══════════════════════════════════════${NC}"
+echo ""
+echo "Repository: $REPO"
+echo ""
+
+# Check if branches exist
+info "Checking branches..."
+
+if ! gh api "repos/$REPO/branches/main" &> /dev/null; then
+    error "Main branch not found in $REPO"
+fi
+success "Main branch exists"
+
+SKIP_DEVELOP=false
+if ! gh api "repos/$REPO/branches/develop" &> /dev/null; then
+    warning "Develop branch not found"
+    read -p "Create develop branch from main? [y/N] " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        MAIN_SHA=$(gh api "repos/$REPO/git/refs/heads/main" | jq -r '.object.sha')
+        gh api --method POST "repos/$REPO/git/refs" \
+            -f ref="refs/heads/develop" \
+            -f sha="$MAIN_SHA" &> /dev/null
+        success "Created develop branch"
+    else
+        SKIP_DEVELOP=true
+        warning "Skipping develop branch protection"
+    fi
+else
+    success "Develop branch exists"
+fi
+
+echo ""
+info "Applying branch protection..."
+
+# Apply main branch protection
+if echo "$MAIN_PROTECTION" | gh api --method PUT \
+    -H "Accept: application/vnd.github+json" \
+    "repos/$REPO/branches/main/protection" \
+    --input - &> /dev/null; then
+    success "Main branch protection applied"
+else
+    error "Failed to apply main branch protection"
+fi
+
+# Apply develop branch protection
+if [ "$SKIP_DEVELOP" != "true" ]; then
+    if echo "$DEVELOP_PROTECTION" | gh api --method PUT \
+        -H "Accept: application/vnd.github+json" \
+        "repos/$REPO/branches/develop/protection" \
+        --input - &> /dev/null; then
+        success "Develop branch protection applied"
+    else
+        error "Failed to apply develop branch protection"
+    fi
+fi
+
+# Success summary
+echo ""
+echo -e "${GREEN}═══════════════════════════════════════${NC}"
+echo -e "${GREEN}  Branch Protection Setup Complete!${NC}"
+echo -e "${GREEN}═══════════════════════════════════════${NC}"
+echo ""
+echo -e "${YELLOW}Standard Workflow:${NC}"
+echo "  1. git checkout -b feature/name"
+echo "  2. gh pr create --base develop"
+echo "  3. gh pr merge [PR] --squash"
+echo ""
+if [ "$SKIP_DEVELOP" != "true" ]; then
+    echo -e "${YELLOW}Emergency Override (develop only):${NC}"
+    echo "  git push origin develop  # Admin can bypass"
+    echo ""
+fi
+echo -e "${BLUE}Documentation:${NC} https://www.notion.so/2af3569aa25581a6b07ed66a0170be14"
+echo ""
+
