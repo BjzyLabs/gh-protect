@@ -90,7 +90,7 @@ ${YELLOW}Branch Protection Applied:${NC}
 
 ${YELLOW}More Info:${NC}
   Repository: https://github.com/BjzyLabs/gh-protect
-  Documentation: https://www.notion.so/2af3569aa25581a6b07ed66a0170be14
+  Documentation: https://appflowy.bjzy.me (AppFlowy; search "gh-protect")
 EOF
     exit 0
 }
@@ -227,6 +227,6 @@ if [ "$SKIP_DEVELOP" != "true" ]; then
     echo "  git push origin develop  # Admin can bypass"
     echo ""
 fi
-echo -e "${BLUE}Documentation:${NC} https://www.notion.so/2af3569aa25581a6b07ed66a0170be14"
+echo -e "${BLUE}Documentation:${NC} https://appflowy.bjzy.me (search gh-protect)"
 echo ""
 

@@ -226,7 +226,7 @@ gh extension upgrade protect
 
 ## Documentation
 
-- **Home Lab Documentation**: [Notion](https://www.notion.so/2af3569aa25581a6b07ed66a0170be14)
+- **Home Lab Documentation**: AppFlowy page for gh-protect (https://appflowy.bjzy.me; find by title)
 - **GitFlow Standards**: [02_GITFLOW.md](https://github.com/BrianInAz/myContext/blob/develop/.ruler/docs/standards/02_GITFLOW.md)
 - **Context Management**: [myContext Repository](https://github.com/BrianInAz/myContext)
 
@@ -245,7 +245,7 @@ MIT License - see LICENSE file for details
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/BjzyLabs/gh-protect/issues)
-- **Documentation**: [Notion Workspace](https://www.notion.so/26b3569aa25580169359fd9bd990430c)
+- **Documentation**: [AppFlowy Workspace](https://appflowy.bjzy.me)
 - **Contact**: Bjzy Labs Infrastructure Team
 
 ---
