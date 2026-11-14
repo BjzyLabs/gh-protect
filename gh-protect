@@ -227,6 +227,6 @@ if [ "$SKIP_DEVELOP" != "true" ]; then
     echo "  git push origin develop  # Admin can bypass"
     echo ""
 fi
-echo -e "${BLUE}Documentation:${NC} https://appflowy.bjzy.me (search "gh-protect")"
+echo -e "${BLUE}Documentation:${NC} https://appflowy.bjzy.me (search gh-protect)"
 echo ""
 
